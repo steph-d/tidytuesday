@@ -1,0 +1,112 @@
+---
+title: "TT-2021-05-11"
+author: "Stéphanie Depickère (@sdepickere)"
+date: "12/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidytuesdayR)
+library(tidyverse)
+library(zipcodeR)
+library(usmap)
+library(ggpubr)
+library(maps)
+library(mapdata)
+library(ggthemes)
+```
+
+## TidyTuesday data: Internet Access
+
+The data this week comes from Microsoft by way of The Verge. If broadband access was a problem before 2020, the pandemic turned it into a crisis. As everyday businesses moved online, city council meetings or court proceedings became near-inaccessible to anyone whose connection couldn’t support a Zoom call. Some school districts started providing Wi-Fi hotspots to students without a reliable home connection. In other districts, kids set up in McDonald’s parking lots just to get a reliable enough signal to do their homework. After years of slowly widening, the broadband gap became impossible to ignore.    
+https://www.theverge.com/22418074/broadband-gap-america-map-county-microsoft-data
+
+## Download the data
+
+```{r data, message=FALSE}
+tt_data <- tt_load("2021-05-11")
+
+# broadband and zip dataframes
+df <- tt_data$broadband
+zip <- tt_data$broadband_zip
+```
+
+## Data preparing
+
+As there is a broadband usage for 2019 in df dataset, and another for 2020 in zip, I decided to show the difference between these 2 datasets. The zip information is given by zipcode, so it is necessary to adecuate the data to have them by county, like for the dataset in 2019.
+
+```{r datazip, results='hide'}
+# extract information by county in zip dataset
+zip2 <- zip %>%
+     select(!c('POSTAL CODE')) %>%
+     group_by(`COUNTY ID`,`COUNTY NAME`,ST) %>%
+     summarise_all(mean,na.rm=TRUE) 
+
+# join it with df dataset
+zip3 <- full_join(df,zip2,by="COUNTY ID")
+
+# verifying if some counties are different (they would have generated NAs)
+zip3[which(is.na(zip3$`COUNTY NAME.x`)),] # 2158 'Kodiak Island Borough, 46102 Moody
+# 2158 and 46102 are not in the official list of County ID (https://www.nrcs.usda.gov/wps/portal/nrcs/detail/national/home/?cid=nrcs143_013697)
+
+# verifying that data are correct and remove the lines
+zip3[zip3$`COUNTY NAME.x` == 'Kodiak Island Borough' | zip3$`COUNTY NAME.y` == 'Kodiak Island Borough',]
+zip3 <- filter(zip3,zip3$`COUNTY ID`!=2158,)
+zip3[zip3$`COUNTY NAME.x` == 'Moody' | zip3$`COUNTY NAME.y` == 'Moody',]
+zip3 <- filter(zip3,zip3$`COUNTY ID`!=46102,)
+# put NA to Broadband usage in 2019:
+zip3[rowSums(is.na(zip3)) > 0, ]
+zip3[rowSums(is.na(zip3)) > 0, 5] <- NA 
+zip3$fips <- as.character(zip3$`COUNTY ID`)
+zip3$`BROADBAND USAGE.x` <- as.numeric(zip3$`BROADBAND USAGE.x`)
+
+# insert the variable to plot
+zip3$evol <- ((zip3$`BROADBAND USAGE.y`*100) - (zip3$`BROADBAND USAGE.x` * 100))
+```
+
+## map plot
+
+The plot will represent the difference in the % of people using broadband internet in the US between November 2019 and October 2020. The red zones show an increase in the proportion of people using broadband internet compared to 2019.
+
+```{r map}
+# extract information by county in zip dataset
+states <- plot_usmap("states", 
+                     color = "yellow",
+                     fill = alpha(0.01)) #this parameter is necessary to get counties to show on top of states
+counties <- plot_usmap(data = zip3, 
+                       values = "evol",
+                       color = "black",
+                       size = 0.1) +
+     scale_fill_gradient2(low = "green", mid="white",high="red",midpoint=0,name="Internet usage") 
+    
+pevol <- ggplot() +  
+     geom_polygon(data=counties[[1]], 
+                  aes(x=x, 
+                      y=y, 
+                      group=group, 
+                      fill = evol), 
+                  color = "black",
+                  size = 0.1) +  
+     geom_polygon(data=states[[1]], 
+                  aes(x=x, 
+                      y=y, 
+                      group=group), 
+                  color = "blue", 
+                  size=0.8,
+                  fill = alpha(0.01)) + 
+     coord_equal() +
+     theme_map() +
+     theme(legend.position="right") +
+     scale_fill_gradient2(low = "green", mid="white",high="red",midpoint=0,
+                          name="Increase (red) or decrease (green) \n  of the percentage of people using \n  broadband internet (> 25Mbps) in Oct \n 2020 compared to Nov 2019") 
+
+annotate_figure(pevol,
+                top = text_grob("Comparison of internet broadband usage in US between 2019 and 2020", 
+                                color = "black", face = "bold", size = 14),
+                bottom = text_grob("Data source: Microsoft, Visualization: Stéphanie Depickère, May 2021", 
+                                   color = "black",
+                                   hjust = 1, x = 0.8, face = "italic", size = 10)
+)     
+ggsave(filename = "MyTT2021-05-11.png",device = "png")    
+```
