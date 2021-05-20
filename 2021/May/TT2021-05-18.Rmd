@@ -1,0 +1,256 @@
+---
+title: "TT-2021-05-11"
+author: "Stéphanie Depickère (@sdepickere)"
+date: "18/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidytuesdayR)
+library(tidyverse)
+library(ggpubr)
+```
+
+## TidyTuesday data: Ask a manager survey
+
+The data this week comes from the Ask a Manager Survey (https://docs.google.com/spreadsheets/d/1IPS5dBSGtwYVbjsfbaMCYIWnOuRmJcbequohNxCyGVw/edit?resourcekey#gid=1625408792). H/t to Kaija Gahm for sharing it as an issue!
+
+The salary survey a few weeks ago got a huge response — 24,000+ people shared their salaries and other info, which is a lot of raw data to sift through. Reader Elisabeth Engl kindly took the raw data and analyzed some of the trends in it and here’s what she found. (She asked me to note that she did this as a fun project to share some insights from the survey, rather than as a paid engagement.)
+
+This data does not reflect the general population; it reflects Ask a Manager readers who self-selected to respond, which is a very different group (as you can see just from the demographic breakdown below, which is very white and very female).
+
+Elisabeth Engl prepped some plots for the Ask a Manager blog using this data (https://www.askamanager.org/2021/05/some-findings-from-24000-peoples-salaries.html).
+
+
+## Download the data
+
+```{r data, message=FALSE}
+# load data
+tt_data <- tt_load("2021-05-18")
+
+# attribute the dataset to tt
+tt <- tt_data$survey
+tt <- as.data.frame(tt)
+```
+
+## Data preparing
+
+The data needed to be cleaned, especially the country. The annual salary was given in different currencies: they needed to be cleaned and they were transformed to have the salary values in USD. 
+
+```{r datazip, results='hide', warning=FALSE}
+# 1. clean country names
+p <- sort(unique(tt$country))
+p[294]
+tt[tt$country == p[40],] 
+
+list_USA <- p[c(2,5:6,18,23,40,46,68,80,84:86,88,94:95,137,144,173:174,177:179,183:192,204:206,215:254,
+                256:262,264:284,286,291:293)]
+tt[tt$country %in% list_USA,11] <- "USA"
+
+list_UK <- p[c(21,55:62,78,96,128:129,146:147,180:182,195:202,208:214,255,287:290)]
+tt[tt$country %in% list_UK,11] <- "UK"
+
+list_NE <- p[c(119:121,127,169:172)]
+tt[tt$country %in% list_NE,11] <- "Netherlands"
+
+list_FI <- p[c(66:67)]
+tt[tt$country %in% list_FI,11] <- "Finland"
+
+list_CA <- p[c(1,25:33,44,77,83)]
+tt[tt$country %in% list_CA,11] <- "Canada"
+
+list_SL <- p[c(160:161)]
+tt[tt$country %in% list_SL,11] <- "Sri Lanka"
+
+list_FR <- p[c(69:71)]
+tt[tt$country %in% list_FR,11] <- "France"
+
+list_IR <- p[c(92:93)]
+tt[tt$country %in% list_IR,11] <- "Ireland"
+
+list_GE <- p[c(74:75)]
+tt[tt$country %in% list_GE,11] <- "Germany"
+
+list_CZ <- p[c(47:50,65)]
+tt[tt$country %in% list_CZ,11] <- "Czech Republic"
+
+list_SP <- p[c(34,158:159)]
+tt[tt$country %in% list_SP,11] <- "Spain"
+
+list_IT <- p[c(98:99)]
+tt[tt$country %in% list_IT,11] <- "Italy"
+
+list_NZ <- p[c(72,122:125,131)]
+tt[tt$country %in% list_NZ,11] <- "New Zealand"
+
+list_JA <- p[c(101:103)]
+tt[tt$country %in% list_JA,11] <- "Japan"
+
+list_CH <- p[c(37,112)]
+tt[tt$country %in% list_CH,11] <- "China"
+
+list_AU <- p[9:12]
+tt[tt$country %in% list_AU,11] <- "Australia"
+
+list_RO <- p[c(73,141)]
+tt[tt$country %in% list_RO,11] <- "Romania"
+
+list_DK <- p[c(51:53)]
+tt[tt$country %in% list_DK,11] <- "Denmark"
+
+list_UAE <- p[c(193,207)]
+tt[tt$country %in% list_UAE,11] <- "UAE"
+
+list_PH <- p[c(134,140)]
+tt[tt$country %in% list_PH,11] <- "Philippines"
+
+list_SA <- p[c(155:156)]
+tt[tt$country %in% list_SA,11] <- "South Africa"
+
+list_SW <- p[c(163:165)]
+tt[tt$country %in% list_SW,11] <- "Switzerland"
+
+list_AT <- p[13:14]
+tt[tt$country %in% list_AT,11] <- "Austria"
+
+list_AG <- p[c(7:8,87)]
+tt[tt$country %in% list_AG,11] <- "Argentina"
+
+list_BR <- p[19:20]
+tt[tt$country %in% list_BR,11] <- "Brazil"
+
+list_SI <- p[c(150:151)]
+tt[tt$country %in% list_SI,11] <- "Singapore"
+
+list_ME <- p[c(115:116)]
+tt[tt$country %in% list_ME,11] <- "Mexico"
+
+list_LU <- p[110:111]
+tt[tt$country %in% list_LU,11] <- "Luxembourg"
+
+
+tt[tt$country == p[139] & tt$city=="India",11] <- "India"
+tt[tt$country == p[139] & tt$city=="Los Angeles",11] <- "USA"
+
+# drop lines where no country available:
+tt <- tt[!(tt$country %in% p[c(4,91,118)]),]
+
+sort(unique(tt$country)) # clear, 89 countries
+
+# %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+# 2. clear currency and salary (all data are  from ap-mai 2021, so the conversion value was from today (19 May 2021))
+sort(unique(tt$currency))
+length(tt$currency[tt$currency=="Other"]) # 133 "Other"
+q <- sort(unique(tt$currency_other[tt$currency=="Other"])) # 73 unique "Other"
+tt[tt$currency_other %in% q[c(1,23,71,72)],8] <- "USD"
+tt[tt$currency_other %in% q[c(2:4,50)],8] <- "ARS" # argentinian peso
+tt[tt$currency_other %in% q[c(5:7)],8] <- "AUD" # australian 
+tt[tt$currency_other %in% q[c(8)],8] <- "BDT" # bangladesh 
+tt[tt$currency_other %in% q[c(9:11)],8] <- "BRL" # brazil 
+tt[tt$currency_other %in% q[c(12)],8] <- "CAD" # Canada 
+tt[tt$currency_other %in% q[c(13)],8] <- "CHF" # Switzerland 
+tt[tt$currency_other %in% q[c(14:15,61)],8] <- "Yuan" # China
+tt[tt$currency_other %in% q[c(16:18)],8] <- "CZK" # Sczech 
+tt[tt$currency_other %in% q[c(19:22)],8] <- "DKK" # Denmark 
+tt[tt$currency_other %in% q[c(24:25)],8] <- "EUR" # Euro
+tt[tt$currency_other %in% q[c(26)],8] <- "GBP" # Libra 
+tt[tt$currency_other %in% q[c(27)],8] <- "IDR" # Indonesia 
+tt[tt$currency_other %in% q[c(28:31,35,44)],8] <- "ILS" # Israel 
+tt[tt$currency_other %in% q[c(32:34)],8] <- "INR" # India 
+tt[tt$currency_other %in% q[c(36:38)],8] <- "KRW" # Korean
+tt[tt$currency_other %in% q[c(39)],8] <- "LKR" # Sri Lanka
+tt[tt$currency_other %in% q[c(40:42)],8] <- "MXN" # Mexico
+tt[tt$currency_other %in% q[c(43,60)],8] <- "MYR" # Malaysia
+tt[tt$currency_other %in% q[c(45:47)],8] <- "NOK" # Norvegian
+tt[tt$currency_other %in% q[c(48,66)],8] <- "NTD" # Taiwan
+tt[tt$currency_other %in% q[c(49)],8] <- "NZD" # New Zealand $
+tt[tt$currency_other %in% q[c(51:56)],8] <- "PHP" # Philippines 
+tt[tt$currency_other %in% q[c(57:59)],8] <- "PLN" # Poland
+tt[tt$currency_other %in% q[c(62)],8] <- "SAR" # Saudi Arabia
+tt[tt$currency_other %in% q[c(63)],8] <- "SEK" # Sweden
+tt[tt$currency_other %in% q[c(64:65)],8] <- "SGD" # Singapore
+tt[tt$currency_other %in% q[c(67:68)],8] <- "THB" # Thailand
+tt[tt$currency_other %in% q[c(69)],8] <- "TRY" # Turkey
+tt[tt$currency_other %in% q[c(70)],8] <- "TTD" # Trinidad y Tobago
+tt[tt$currency_other %in% q[c(73)],8] <- "ZAR" # South Africa
+tt[9345,8] <- "USD"
+tt[(tt$annual_salary==48000 & tt$country=="Malaysia"),8] <- "MYR"
+tt[(tt$annual_salary==97000 & tt$country=="Malaysia"),8]  <- "MYR"
+tt[(tt$annual_salary==55140),8]  <- "USD"
+
+# to separate New Zealand and Australian currency
+tt[(tt$currency=="AUD/NZD" & tt$country=="Australia"),8] <- "AUD"
+tt[(tt$currency=="AUD/NZD" & tt$country=="New Zealand"),8] <- "NZD"
+tt <- tt[!(tt$currency == "AUD/NZD"),] # 2 entries 1 Canada 1USA with currency AUD/NZD, cannot be defined so removed
+tt <- tt[!(tt$country == "Colombia"),] # 2 currency, don't know which one is for salary ==> removed
+tt <- droplevels(tt)
+tt <- tt[!(tt$country == "Colombia"),]
+
+# add a column for having all salaries in USD
+conversion <- data.frame(currency = sort(unique(tt$currency)),
+                         rate = c(0.01,0.77,0.01,0.19,0.82,
+                                  1.11,0.05,0.16,1.22,1.41,
+                                  0.13,0.0001,0.31,0.014,0.0092,
+                                  0.0009,0.0051,0.05,0.24,0.12,
+                                  0.0357,0.72,0.0209,0.27,0.27,
+                                  0.12,0.75,0.03,0.12,0.15,
+                                  1,0.16,0.0709)) # dictionnary for conversion
+tt$salaryUSD <- tt$annual_salary
+for(i in 1:length(conversion$currency)){
+     tt[tt$currency == conversion$currency[i],19] <- tt[tt$currency == conversion$currency[i],6] * conversion[i,2]
+}
+
+# select a cleaned dataset
+ttclean <- tt %>% select(salaryUSD,country,how_old_are_you,industry,overall_years_of_professional_experience,
+              years_of_experience_in_field,highest_level_of_education_completed,gender,race)
+```
+
+## map plot
+
+From the numerous possible plots, I decided to show you two of them: the first one represents a boxplot of the salaries for the different countries present in the survey. The salary value is in a logarithmic scale to appreciate the differences between the countries.     
+The second plot shows the mean annual salary according to the professional level of the people and their professional experience (in years). 
+
+```{r map, fig.width=12, fig.height=12, warning=FALSE}
+pcountry <- ggplot(ttclean,aes(x=country,y=salaryUSD)) +
+     geom_boxplot() +
+     theme(legend.position="top",
+           strip.text = element_text(size=8,face="bold"),
+           plot.title = element_text(color="black", size=14, face="bold",hjust = 0.5),
+           axis.title.x = element_blank(),
+           axis.text.y = element_text(size=8),
+           axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1,size=8)) +
+     scale_y_continuous(trans='log10') +
+     labs(y="annual salary (USD)")
+
+databubble <- ttclean %>% select(overall_years_of_professional_experience,
+                                 highest_level_of_education_completed,
+                                 salaryUSD) %>%
+     drop_na() %>%
+     group_by(overall_years_of_professional_experience,
+              highest_level_of_education_completed) %>%
+     summarise_all(mean,na.rm=TRUE) 
+
+pbubble <- ggplot(databubble, aes(x=overall_years_of_professional_experience, 
+                                  y=highest_level_of_education_completed, size = salaryUSD)) +
+     theme(legend.position="top",
+           strip.text = element_text(size=8,face="bold"),
+           plot.title = element_text(color="black", size=14, face="bold",hjust = 0.5),
+           axis.title.x = element_blank(),
+           axis.text.y = element_text(size=8),
+           axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1,size=8)) +
+     geom_point(alpha=0.7,col="blue") +
+     labs(x="highest level of education", y="years of professional experience",size="mean annual salary (USD)")
+
+fin <- ggarrange(pcountry, pbubble, ncol = 1, nrow = 2)
+
+annotate_figure(fin,
+                top = text_grob("Annual salary survey: results per country and influence of level of education and professional experience", 
+                                color = "black", face = "bold", size = 14),
+                bottom = text_grob("Data come from a survey gathering 26226 answers, most of them (83%) coming from people living in USA. \n The highest salaries were found in USA and UK. In the second plot, we can observe the highest mean annual salaries for professional degree, \n and the lowest for High School degree. The salaries tend to increase with the experience of the person. \n
+                                   Data source: Ask a Manager Survey, Visualization: Stéphanie Depickère, May 2021", 
+                                   color = "brown",
+                                   face = "italic", size = 10)
+)     
+ggsave(filename = "MyTT2021-05-18.png",width = 12, height = 12,device = "png")  
+```
