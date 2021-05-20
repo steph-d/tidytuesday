@@ -206,12 +206,12 @@ ttclean <- tt %>% select(salaryUSD,country,how_old_are_you,industry,overall_year
               years_of_experience_in_field,highest_level_of_education_completed,gender,race)
 ```
 
-## map plot
+## plot
 
 From the numerous possible plots, I decided to show you two of them: the first one represents a boxplot of the salaries for the different countries present in the survey. The salary value is in a logarithmic scale to appreciate the differences between the countries.     
 The second plot shows the mean annual salary according to the professional level of the people and their professional experience (in years). 
 
-```{r map, fig.width=12, fig.height=12, warning=FALSE}
+```{r plot, fig.width=12, fig.height=12, warning=FALSE}
 pcountry <- ggplot(ttclean,aes(x=country,y=salaryUSD)) +
      geom_boxplot() +
      theme(legend.position="top",
@@ -236,7 +236,6 @@ pbubble <- ggplot(databubble, aes(x=overall_years_of_professional_experience,
      theme(legend.position="top",
            strip.text = element_text(size=8,face="bold"),
            plot.title = element_text(color="black", size=14, face="bold",hjust = 0.5),
-           axis.title.x = element_blank(),
            axis.text.y = element_text(size=8),
            axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1,size=8)) +
      geom_point(alpha=0.7,col="blue") +
