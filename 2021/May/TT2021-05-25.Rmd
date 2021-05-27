@@ -1,0 +1,76 @@
+---
+title: "TT2021-05-25"
+author: "Stéphanie Depickère (@sdepickere)"
+date: "26/05/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidytuesdayR)
+library(tidyverse)
+library(ggpubr)
+```
+
+## TidyTuesday data: Mario Kart 64 World Records
+
+The data this week comes from Mario Kart World Records (https://mkwrs.com/). 
+
+Despite it’s release back in 1996 (1997 in Europe and North America), Mario Kart 64 World Records is still actively played by many and new world records are achieved every month.
+
+The game consists of 16 individual tracks and world records can be achieved for the fastest single lap or the fastest completed race (three laps). Also, through the years, players discovered shortcuts in many of the tracks. 
+
+
+## Download the data
+
+```{r data, message=FALSE}
+# load data
+tt_data <- tt_load("2021-05-25")
+
+# attribute the dataset to tt
+rr <- tt_data$records
+```
+
+## Data preparing
+
+The data contains a lot of details, with the records according to the tracks, the use of shortcuts, in single or 3 laps, etc. I was very interested in how the use of shortcuts could improve the records in the 3 laps according to the track.
+
+```{r datazip, results='hide', warning=FALSE}
+rr3 <- rr %>% filter(type=="Three Lap")
+```
+
+## plot
+
+In this plot, we can see the evolution of the records obtained in the 16 tracks, with the use or not of shortcuts. 
+
+```{r plot, fig.width=15, fig.height=12, warning=FALSE}
+mycolors <- c("black","yellow","#26C4EC","magenta","#1E7FCB","orange","green","#BA9B61",
+              "brown","violet","red","lightgreen","grey","pink","#0000FF","#B0F2B6")
+shortcut.names <- as_labeller(
+     c(`No` = "without shortcut", 
+       `Yes` = "with shortcut"))
+g <- ggplot(rr3,aes(date,time,color=track)) +
+     geom_line(size=1.2) +
+     facet_grid(cols=vars(shortcut),labeller = shortcut.names) +
+     #     scale_color_viridis(discrete = TRUE, option = "D") +
+     scale_color_manual(values = mycolors) +
+     labs(x = NULL, y = "time (s)") +
+     theme(strip.text.x = element_text(size=16, face="bold"),
+           strip.background = element_rect(colour = "black", fill = "grey"),
+           panel.background = element_rect(fill = "white", colour = "white"),
+           panel.border = element_rect(fill = NA),
+           panel.grid.major = element_line(colour = "grey",linetype="dotted"),
+           axis.text.y = element_text(size=16,face="bold"),
+           axis.text.x = element_text(size=14,face="bold"),
+           axis.title.y = element_text(size=14,face="bold"))
+
+annotate_figure(g,
+                top = text_grob("Mario Kart 64 World Records: how the use of shortcuts helped in the fastest completed race \n", 
+                                color = "black", face = "bold", size = 18),
+                bottom = text_grob("On the left plot, we can appreciate the increasing ability of the gamers who shorter the time needed to complete the race between 1997 and 2021. \n On the right plot, the discovering of shortcuts drops dramatically the record times. The discovering of shorcuts appeared very quickly in 1997 for most of the tracks. \n For Choco Mountain or Rainbow Road tracks, different shortcuts were discovered along the years. In the case of Rainbow Road, the record time was divided by 6!! \n
+                                   Data source: Mario Kart 64 World Records, Visualization: Stéphanie Depickère, May 2021", 
+                                   color = "brown",
+                                   face = "italic", size = 11))
+
+#ggsave(filename = "MyTT2021-05-25.png",width = 12, height = 12,device = "png")
+```
