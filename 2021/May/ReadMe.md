@@ -10,3 +10,7 @@
 ## Week 21 - annual salary survey
 
 ![image Week21](MyTT2021-05-18.png)
+
+## Week 22 - Mario Kart 64 World Records
+
+![image Week22](MyTT2021-05-25.png)
