@@ -1,0 +1,120 @@
+---
+title: "TT2021-06-01"
+author: "Stéphanie Depickère (@sdepickere)"
+date: "05/06/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidytuesdayR)
+library(tidyverse)
+library(ggpubr)
+library(survivoR)
+library(mapdata)
+library(do)
+```
+
+## TidyTuesday data: Survivor TV Show data
+
+The data this week comes from the survivorR R package by way of Daniel Oehm.
+
+596 episodes. 40 seasons. 1 package!
+
+survivoR is a collection of data sets detailing events across all 40 seasons of the US Survivor, including castaway information, vote history, immunity and reward challenge winners and jury votes.
+
+Full details about the package and additional datasets available in the package are available on GitHub. The package is on CRAN as survivoR and can be installed for ALL the datasets, themes, etc via install.packages("survivoR").
+
+Some example code is available at Daniel's Website (http://gradientdescending.com/survivor-data-from-the-tv-series-in-r/).
+
+Additional context/details about the Survivor TV show can be found on Wikipedia.
+
+
+## Download the data
+
+```{r data, message=FALSE}
+# load data
+summ <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-06-01/summary.csv')
+chalg <- summary <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-06-01/challenges.csv')
+castaways <- summary <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-06-01/castaways.csv')
+viewers <- summary <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-06-01/viewers.csv')
+jury <- summary <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2021/2021-06-01/jury_votes.csv')
+
+```
+
+## Data preparing
+
+The data contains a lot of details, with the records according to the tracks, the use of shortcuts, in single or 3 laps, etc. I was very interested in how the use of shortcuts could improve the records in the 3 laps according to the track.
+
+```{r datazip, results='hide', warning=FALSE}
+df <- summ %>%
+     left_join(castaways[castaways$result=="Sole Survivor",], by = c("season_name", "full_name")) 
+
+state <- map_data("state")
+state$winnb <- 0
+dict <- as.data.frame(table(df$state))
+dict$Var1 <- tolower(dict$Var1)
+state[state$region=="district of columbia",5] <- "d.c."
+df$state <- tolower(df$state)
+for(i in unique_no.NA(dict$Var1)){
+     state[state$region==i,7] <- dict[dict$Var1==i,2]
+}
+
+ 
+
+# aggregate personalities to groups (https://www.16personalities.com/personality-types)
+Analysts <- c("INTJ","INTP","ENTJ","ENTP")
+Diplomats <- c("INFJ","INFP","ENFJ","ENFP")
+Sentinels <- c("ISTJ","ISFJ","ESTJ","ESFJ")
+Explorers <- c("ISTP","ISFP","ESTP","ESFP")
+dictpers <- data.frame(group=c(rep("Analysts",4),rep("Diplomats",4),rep("Sentinels",4),rep("Explorers",4)),
+                     pers=c(Analysts,Diplomats,Sentinels,Explorers))
+
+df <- as.data.frame(df)
+df$GroupPers <- NA
+for(i in unique(df$personality_type)){
+        df[which(df$personality_type==i),36] <- dictpers[dictpers$pers==i,1]
+}
+
+```
+
+## plot
+
+In this plot, we can see the evolution of the records obtained in the 16 tracks, with the use or not of shortcuts. 
+
+```{r plot, fig.width=15, fig.height=12, warning=FALSE}
+# plot of the origin of the winners
+p1 <- ggplot() + 
+        geom_polygon(data=state, aes(x=long, y=lat, fill=as.factor(winnb), group=group),color = "grey") + 
+        scale_fill_manual(values = c("white", "#FDF1B8", "#DFAF2C","orange","red","magenta")) +
+        labs(fill="Number of victories",x="",y="",title="Number of victories per US states according to the origin of the winner") 
+
+# plot of the age according to countries and personality
+p2 <- ggplot(df,aes(x=age,y=country,label=season.x)) +
+        geom_point(size=3,aes(color=df$GroupPers)) +
+        theme(plot.background = element_rect(fill="#FDF1B8"),
+              panel.background = element_rect(fill="lightblue"),
+              axis.title.x = element_text(face="bold",size=12),
+              axis.title.y.left = element_text(face="bold",size=12)) +
+        labs(x="age of winners",y="country",colour="Personality",
+             title="Characteristics of winners: age and personality, according to the country \nwhere the season took place (numbers represent the season number)") +
+        geom_text(aes(label=season.x),hjust=0.5, vjust=1.5,size=3) +
+        scale_discrete_manual(values=c("blue","green","yellow","magenta","black"),
+                              aesthetics="colour",na.translate=FALSE) 
+
+fin <- ggarrange(p1, p2,
+                 ncol = 1, nrow = 2)
+
+annotate_figure(fin,
+                top = text_grob("Survivor TV Show data: characteristics of the winners", 
+                                color = "black", face = "bold", size = 14),
+                bottom = text_grob("Data comes from the survivorR R package (Daniel Oehm). 96 episodes. 40 seasons. 1 package! Most of the winners come from Califonia and East Cost. \n8 analysts, 9 diplomats, 14 explorers and 6 sentinels, it seems that explorers have an advantage for winning.\nMost participants are 20-40 years old, but one is more than 55 years old!\n
+                                   Data source: SurvivorR, Visualization: Stéphanie Depickère, June 2021", 
+                                   color = "brown",
+                                   face = "italic", size = 10))   
+
+
+
+ggsave(filename = "MyTT2021-06-01b.png",width = 12, height = 12,device = "png")
+
+```
