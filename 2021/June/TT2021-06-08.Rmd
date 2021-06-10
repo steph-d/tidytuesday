@@ -1,0 +1,110 @@
+---
+title: "TT2021-06-08"
+author: "Stéphanie Depickère (@sdepickere)"
+date: "05/06/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidytuesdayR)
+library(tidyverse)
+library(ggpubr)
+library(ggradar)
+library(scales)
+```
+
+## TidyTuesday data: Commercial Fishing
+
+The data this week comes from Great Lakes Fishery Commission (http://www.glfc.org/great-lakes-databases.php).
+
+Commercial fish catch data (called production) were published by the Great Lakes Fishery Commission in 1962 (Technical Report No.3) and covered the period 1867-1960. A supplement covering the years 1961-1968 was released in 1970, and a revised edition covering the years 1867-1977 was published in 1979. This third update of a web-based version covers the period 1867-2015. The intent is to update at approximately five-year intervals. The files are intended for open use by the public. We ask only that the commission be acknowledged when these records are used in presentations and publications.
+
+## Download the data
+
+```{r data, message=FALSE}
+# load data
+tt_data <- tt_load("2021-06-08")
+
+# attribute the dataset to tt
+fi <- tt_data$fishing
+
+```
+
+## Data preparing
+
+I was interested in explore radar charts. So, I prepare the data to obtain the percentage of catched fish during the whole period of observation (1867-2015) in the different lakes and see where each species is catched the most. 
+
+```{r datazip, results='hide', warning=FALSE}
+#%%%%%%%%%%%%%%%%%% cleaning fish species names
+sort(unique(fi$species)) # 51 names, need to be cleaned
+# cleaning species names:
+fi[fi$species=="Channel Catfish",3] <- "Channel catfish" # to put together both writing
+fi[fi$species=="Cisco and chubs",3] <- "Cisco and Chubs" # to put together both writing
+fi[fi$species=="Cisco and Chub",3] <- "Cisco and Chubs" # to put together both writing
+fi[fi$species=="Amercian Eel",3] <- "American Eel" # to put together both writing
+fi[fi$species=="Bullheads",3] <- "Bullhead" # to put together both writing
+fi[fi$species=="Crappies",3] <- "Crappie" # to put together both writing
+fi[fi$species=="Pacific salmon",3] <- "Pacific Salmon" # to put together both writing
+fi[fi$species=="White bass",3] <- "White Bass" # to put together both writing
+sort(unique(fi$species)) # 43 names, some of them with various species together
+# add a new columns to put mixed of fish as "mixed"
+fi$uniqSp <- fi$species
+fi[fi$uniqSp %in% c("Channel Catfish and Bullheads","Walleye and Blue Pike",
+                    "Cisco and Chubs","Rock Bass and Crappie"),8] <- "mixed"
+sort(unique(fi$uniqSp)) # 40 species, one being "mixed"
+
+#use of only database with unique species name (without mixed)
+fiSp <- fi %>%
+     filter(uniqSp != "mixed") %>%
+     drop_na() %>%
+     select(-c(region,comments,species)) %>%
+     group_by(lake,year,uniqSp) %>%
+     summarise_at(vars(grand_total,values),sum,na.rm=TRUE)
+
+fiNbSpLac <- fiSp %>%
+        group_by(lake,uniqSp) %>%
+        filter(values!=0 | grand_total!=0) %>%
+        summarise_at(vars(grand_total,values),sum)
+
+# number of fish in each lake
+df1 <- fiNbSpLac %>%
+        select(-values) %>%
+        pivot_wider(names_from=uniqSp,
+                    values_from=grand_total,
+                    values_fill=0)
+# same in proportion
+df1pc <- df1 %>%
+        map_if(is.numeric, ~./sum(.)) %>%
+        as_tibble()
+```
+
+## plot
+
+In this plot, we can see the evolution of the records obtained in the 16 tracks, with the use or not of shortcuts. 
+
+```{r plot, fig.width=15, fig.height=12, warning=FALSE}
+g <- ggradar(
+        df1pc, 
+        values.radar = c("0", "50%", "100%"),
+        grid.min = 0, grid.mid = 0.5, grid.max = 1,
+        group.point.size = 3,
+        group.line.width = 1,
+        group.colours = c("red", "orange", "blue","green","magenta"),
+        background.circle.colour = "beige"
+)
+
+annotate_figure(g,
+                top = text_grob("\nCommercial Fishing in lakes of Canada and USA: percentage of captured fish species (1867-2015)", 
+                                color = "black", face = "bold", size = 18),
+                bottom = text_grob("Data this week comes from Great Lakes Fishery Commission. In this radar chart, we can appreciate \nthe percentage of each fish species caught in each lake. \nLake Saint Clair has very small records compared to others. It seems that species are significantly more present in some lakes.\n Chubs, Lake Sturgeon, and Bullhead were catched in 2 lakes at around 50% in each.\n
+                                   Data source: Great Lakes Fishery Commission, Visualization: Stéphanie Depickère, June 2021", 
+                                   color = "brown",
+                                   face = "italic", size = 14))   
+
+
+
+ggsave(filename = "MyTT2021-06-08.png",width = 12, height = 10,device = "png")
+
+
+```
