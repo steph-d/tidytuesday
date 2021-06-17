@@ -1,0 +1,92 @@
+---
+title: "TT2021-06-15"
+author: "Stéphanie Depickère (@sdepickere)"
+date: "17/06/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidytuesdayR)
+library(tidyverse)
+library(ggpubr)
+```
+
+## TidyTuesday data: Du Bois and Juneteenth Revisited
+
+The data this week comes from Anthony Starks, Allen Hillery Sekou Tyler. The tweets aggregated show the #DuBoisChallenge (https://github.com/ajstarks/dubois-data-portraits/blob/master/challenge/README.md) tweets from 2021. The data used for the challenge is also accessible from TidyTuesday week 8 of 2021 (https://github.com/rfordatascience/tidytuesday/blob/master/data/2021/2021-02-16/readme.md).
+
+Sekou has also visualized the Twitter activity in a dashboard (https://public.tableau.com/app/profile/sekou.tyler/viz/DuBoisChalllenge2021TwitterMetrics/DuBoisChallenge2021TwitterActivity).
+
+Please also revisit the 2020 data for data for and recognition of Juneteenth. 
+
+## Download the data
+
+```{r data, message=FALSE}
+# load data
+tt_data <- tt_load("2021-06-15") # tidytuesdayR::tt_load(2021, week = 25)
+
+# attribute the dataset to tt
+tt <- tt_data$tweets
+```
+
+## Data preparing
+
+I was interested in exploring the circular bar chart, like in the Du Bois presentation. First attempt for me! So, I prepare the data to obtain the most important influencers, measured by the sum of retweets, likes, and quotes. 
+
+```{r datazip, results='hide', warning=FALSE}
+# add a column with the total influence (retweets, likes, and quotes)
+tt_short <- tt %>% 
+     mutate(TotInfl= tt$retweet_count+tt$like_count + tt$quote_count) %>%
+     arrange(desc(TotInfl)) %>%
+     filter(TotInfl>100) %>%
+     select(datetime,content,retweet_count,like_count,quote_count,username,location,followers,TotInfl)
+
+# pivot long table:
+tt_shortP <- tt_short %>%
+     select(retweet_count,like_count,quote_count,username) %>%
+     pivot_longer(!username,names_to="type",values_to="val")
+
+# set factor order
+tt_shortP$username <-
+     factor(tt_shortP$username, 
+            levels=rev(tt_short$username))
+```
+
+## plot
+
+In this plot, we have a stacked bar plot, representing the number of retweets, likes, and quotes obtained by the different tweets. Only tweets with more than 100 interactions are considered. 
+
+```{r plot, fig.width=12, fig.height=10, warning=FALSE}
+g <- ggplot(tt_shortP,aes(x=username,y=val,fill=type,label=val)) +
+     geom_bar(stat="identity") +
+     coord_polar(theta = "y") +
+     xlab("") + ylab("") +
+     ylim(c(0,900)) +
+     geom_text(data = tt_shortP, hjust = 1, size = 4,
+               aes(x = username, y = 0, label = username)) +
+     geom_text(size = 2.3, position = position_stack(vjust = 0.5)) +
+     theme_minimal() +
+     theme(legend.position = "right",
+           panel.grid.major = element_blank(),
+           panel.grid.minor = element_blank(),
+           axis.line = element_blank(),
+           axis.text.y = element_blank(),
+           axis.text.x = element_blank(),
+           axis.ticks = element_blank()) +
+     scale_fill_manual(values=c("red","yellow","lightblue"))
+
+annotate_figure(g,
+                top = text_grob("\nDu Bois and Juneteenth Revisited: most influencing users", 
+                                color = "black", face = "bold", size = 18),
+                bottom = text_grob("Data this week comes from Anthony Starks, Allen Hillery Sekou Tyler, showing tweets from the #DuBoisChallenge, 2021. \nIn this circular bar chart, we can appreciate the greatest influencers in terms of retweets/likes/quotes, \nwith a total number of interactions greater than 100.\nThe number of retweets, likes and quotes are indicated on the chart.\n
+                                   Data source: Anthony Starks, Allen Hillery Sekou Tyler, #DuBoisChallenge tweets from 2021, Visualization: Stéphanie Depickère, June 2021", 
+                                   color = "darkgreen",
+                                   face = "italic", size = 14))    
+
+
+
+ggsave(filename = "MyTT2021-06-15.png",width = 12, height = 10,device = "png")
+
+
+```
