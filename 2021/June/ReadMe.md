@@ -6,3 +6,7 @@
 ## Week 24 - Commercial Fishing
 
 ![image_Week24](MyTT2021-06-08.png)
+
+## Week 25 - Du Bois and Juneteenth Revisited
+
+![image_Week25](MyTT2021-06-15.png)
