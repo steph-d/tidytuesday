@@ -99,7 +99,7 @@ annotate_figure(hm,
                 top = text_grob("\nUS Park access: difference between US cities in 2020", 
                                 color = "black", face = "bold", size = 25),
                 bottom = text_grob("Data this week comes from The Trust for Public Land, showing park access in some of US cities in 2020. \nIn this heatmap, we can compare the quality of the infrastructures measured in points (higher points means \nbetter infrastructure) in the different cities. The total % represent the total points of the city as a percentage. \nThe cities are ordered by how much spend the residents (spending variable) for the structures/characteristics. \nIt is interesting to note that the cities where resident spend more is not synonyme of having the highest \npoints in each categories; and some cities with a relative low spending can have very good specific structures \nlike basketball hoops, or dogpark, or splashground for example.\n
-                                   Data source: Anthony Starks, Allen Hillery Sekou Tyler, #DuBoisChallenge tweets from 2021, Visualization: Stéphanie Depickère, June 2021", 
+                                   Data source:  The Trust for Public Land, Visualization: Stéphanie Depickère, June 2021", 
                                    color = "brown",
                                    face = "italic", size = 14))   
 
