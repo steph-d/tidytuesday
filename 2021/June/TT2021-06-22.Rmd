@@ -1,0 +1,112 @@
+---
+title: "TT2021-06-15"
+author: "Stéphanie Depickère (@sdepickere)"
+date: "28/06/2021"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidytuesdayR)
+library(tidyverse)
+library(ggpubr)
+```
+
+## TidyTuesday data: Park Access
+
+The data this week comes from The Trust for Public Land (https://www.tpl.org/parks-and-an-equitable-recovery-parkscore-report), describing for some US cities, the park/green spaces and their characteristics, that are evaluated using a point system. 
+
+## Download the data
+
+```{r data, message=FALSE}
+# load data
+tt_data <- tt_load("2021-06-22") # tidytuesdayR::tt_load(2021, week = 25)
+
+# attribute the dataset to tt
+tt <- tt_data$parks
+```
+
+## Data preparing
+
+As there are a lot of characteristics, I thought a heatmap of the situation in 2020 was a good approach to have an overview of the situation. One can think that if people spend more money, they should have the best evaluation for each characteristic of the green area of their city. So, I sorted the cities according to the "spending" variable. 
+
+```{r datazip, results='hide', warning=FALSE}
+# clean names
+tt[tt$city=="Washington, D.C.",3] <- "Washington, DC"
+
+
+# select only 2020 and points columns
+ttclean <- tt %>% 
+     select(!ends_with("_data")) %>%
+     filter(year==2020)
+
+# to see the number of NAs in the different variables
+colSums(is.na(ttclean)) 
+
+# park_benches has a lot of NA, so this data can be removed
+ttclean <- ttclean %>%
+     select(!park_benches)
+
+# order data by spending amount
+ttclean$city <- as.factor(ttclean$city)
+ttclean$city <- with(ttclean, reorder(city, spend_per_resident_points))
+```
+
+## plot
+
+In this heatmap, we can see that globally, people who pay more for green area have access to nice characteristics. Nevertheless, in some cities, even if people do not pay so much, they can also have very good specific infrastructures. In Jersey city for example, the speding is very low, but people have access to nice splashgrounds, or dogparks, and in a good vecinity, meaning that a lot of resident have access to these green area within a 10 minute walk! 
+
+```{r plot, fig.width=12, fig.height=12, warning=FALSE}
+# heatmap
+dhm <- ttclean %>%
+     #arrange(desc(spend_per_resident_points)) %>%
+     select(!c(year,rank,city_dup,total_points)) %>%
+     pivot_longer(!city,names_to="description",values_to="val")
+
+# recode factor name:
+dhm <- dhm %>%
+     mutate(description = fct_recode(description,"spending"="spend_per_resident_points",
+                                     "total %"="total_pct",
+                                     "amenities"="amenities_points",
+                                     "basketball hoops"="basketball_points",
+                                     "dogpark"="dogpark_points",
+                                     "median park"="med_park_size_points",
+                                     "parkland"="park_pct_city_points",
+                                     "vecinity"="pct_near_park_points",
+                                     "playground"="playground_points",
+                                     "recreation-senior centers"="rec_sr_points",     
+                                     "restroom"="restroom_points",
+                                     "splashground"="splashground_points"))
+
+# reorder the characteristics
+ll <- c("total %","spending","amenities","basketball hoops","dogpark",
+    "median park","parkland","vecinity","playground","recreation-senior centers",
+    "restroom","splashground")
+dhm <- dhm %>%
+     mutate(description = factor(description, 
+                               levels = ll))
+
+mypalette <- c("black","red","white","yellow","green")
+
+hm <- ggplot(data = dhm, 
+             mapping = aes(y = city, x = description,fill = val)) +
+     geom_tile() + 
+     labs(x="",y="") +
+     scale_fill_gradientn(name="points",colors = mypalette, breaks = c(20,40,60,80)) +
+     theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5,size=15,face="bold"),
+           axis.text.y = element_text(size=12,face="bold"))
+
+annotate_figure(hm,
+                top = text_grob("\nUS Park access: difference between US cities in 2020", 
+                                color = "black", face = "bold", size = 25),
+                bottom = text_grob("Data this week comes from The Trust for Public Land, showing park access in some of US cities in 2020. \nIn this heatmap, we can compare the quality of the infrastructures measured in points (higher points means \nbetter infrastructure) in the different cities. The total % represent the total points of the city as a percentage. \nThe cities are ordered by how much spend the residents (spending variable) for the structures/characteristics. \nIt is interesting to note that the cities where resident spend more is not synonyme of having the highest \npoints in each categories; and some cities with a relative low spending can have very good specific structures \nlike basketball hoops, or dogpark, or splashground for example.\n
+                                   Data source: Anthony Starks, Allen Hillery Sekou Tyler, #DuBoisChallenge tweets from 2021, Visualization: Stéphanie Depickère, June 2021", 
+                                   color = "brown",
+                                   face = "italic", size = 14))   
+
+
+
+ggsave(filename = "MyTT2021-06-22.png",width = 12, height = 20,device = "png")
+
+
+```
+
