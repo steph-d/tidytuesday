@@ -10,3 +10,7 @@
 ## Week 25 - Du Bois and Juneteenth Revisited
 
 ![image_Week25](MyTT2021-06-15.png)
+
+## Week 26 - Park Access
+
+![image_Week26](MyTT2021-06-22.png)
