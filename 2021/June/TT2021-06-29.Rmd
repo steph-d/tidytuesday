@@ -1,0 +1,134 @@
+---
+title: "TT2021-06-29"
+author: "Stéphanie Depickère (@sdepickere)"
+date: "29/06/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidytuesdayR)
+library(tidyverse)
+library(ggpubr)
+```
+
+## TidyTuesday data: Animal Rescues
+
+The data this week comes from London.gov (https://data.london.gov.uk/dataset/animal-rescue-incidents-attended-by-lfb), by way of Data is Plural and Georgios Karamanis.
+
+Fox in bedroom, dog trapped in wall. The London Fire Brigade responds to hundreds of requests to rescue animals each year. Its monthly-updated spreadsheet of such events goes back to 2009; it lists the location and type of property, the kind of animal and rescue, hours spent, a (very) brief description, and more. [h/t Soph Warnes]
+
+The London Fire Brigade attends a range of non-fire incidents (which we call 'special services'). These 'special services' include assistance to animals that may be trapped or in distress.
+
+We routinely get asked for information about the number of such incident attended by the London Fire Brigade and this data is published on the London Datastore to assist those who require it.
+
+The data is provided from January 2009 and isupdated monthly. A range of information is supplied for each incident including some location information (postcode, borough, ward), as well as the data/time of the incidents. We do not routinely record data about animal deaths or injuries.
+
+## Download the data
+
+```{r data, message=FALSE}
+# load data
+tt_data <- tt_load("2021-06-29") # tidytuesdayR::tt_load(2021, week = 25)
+
+# attribute the dataset to tt
+tt <- tt_data$animal_rescues
+```
+
+## Data preparing
+
+Exploring the data, I observed that some animal names have to be cleaned. Moreover, as there are numerous animals with few number of rescue, it seems adequate to put some of them in categories. I built these categories according to the main feature of the animals, like farm animals, reptiles, rodents, and birds. I also removed unknown animal categories.
+
+```{r datazip, results='hide', warning=FALSE}
+# clear Cat and cat
+tt[tt$animal_group_parent=="cat",11] <- "Cat"
+
+
+# select data
+df <- tt %>%
+     group_by(cal_year) %>%
+     select(date_time_of_call,cal_year,incident_notional_cost,animal_group_parent,property_category,
+            special_service_type_category,borough,borough_code,postcode_district,latitude,longitude) %>%
+     filter(cal_year!=2021) %>%
+     filter(!animal_group_parent %in% c("Unknown - Animal rescue from below ground - Farm animal",
+                                        "Unknown - Animal rescue from water - Farm animal",
+                                        "Unknown - Wild Animal",
+                                        "Unknown - Domestic Animal Or Pet",
+                                        "Unknown - Heavy Livestock Animal")) %>%
+     mutate(animal_group_parent_Cat = fct_recode(animal_group_parent,
+                                             "Bird"="Budgie",
+                                             "Bird"="Pigeon",
+                                             "Bull/Cow/Goat/Lamb/Sheep"="Bull",
+                                             "Bull/Cow/Goat/Lamb/Sheep"="Cow",
+                                             "Bull/Cow/Goat/Lamb/Sheep"="Goat",
+                                             "Bull/Cow/Goat/Lamb/Sheep"="Lamb",
+                                             "Bull/Cow/Goat/Lamb/Sheep"="Sheep",
+                                             "Ferret/Hamster/Hedgehog/Rabbit"="Ferret",
+                                             "Ferret/Hamster/Hedgehog/Rabbit"="Hamster",
+                                             "Ferret/Hamster/Hedgehog/Rabbit"="Hedgehog",
+                                             "Ferret/Hamster/Hedgehog/Rabbit"="Rabbit",
+                                             "Lizard/Snake/Tortoise"="Lizard",
+                                             "Lizard/Snake/Tortoise"="Snake",
+                                             "Lizard/Snake/Tortoise"="Tortoise"))
+df$incident_notional_cost <- as.numeric(df$incident_notional_cost)
+
+# dataset about the number of rescue according the year and the animal category
+dfperAnperYearSum <- df %>%
+     group_by(cal_year,animal_group_parent_Cat) %>%
+     summarise(countYAn = n())
+view(dfperAnperYearSum)
+
+# dataset about the cost per year in order to calculate the average cost of a rescue
+dfCost <- df %>%
+     group_by(cal_year) %>%
+     summarise_at(vars(incident_notional_cost), 
+                  list(sumNotNA = ~ sum(!is.na(.)), 
+                       sumNA = ~ sum(is.na(.)), 
+                       TotCost = ~ sum(.x, na.rm=TRUE)))
+# to adapt the cost to a second y-axis
+dfCost$AvCost <- dfCost$TotCost / dfCost$sumNotNA / 400
+```
+
+## plot
+
+
+
+```{r plot, fig.width=12, fig.height=10, warning=FALSE}
+
+myp <- c("lightblue","orange","chartreuse2","cornsilk","darkgoldenrod",
+         "black","red","yellow","purple","aquamarine","blue")
+
+g <- ggplot() +
+     geom_bar(data=dfperAnperYearSum,
+              aes(x=cal_year,
+                  y=countYAn,
+                  fill=animal_group_parent_Cat),
+              stat="identity",
+              position="fill") +
+     geom_line(data=dfCost,
+               aes(x=cal_year,
+                   y=AvCost),
+               colour="white",
+               size=3) +
+     scale_fill_manual(values=myp) +
+     scale_y_continuous(sec.axis = sec_axis( trans=~.*400, name="average cost per rescue")) +
+     scale_x_continuous(breaks=seq(2009,2020,1)) +
+     labs(x="",y="proportion",fill="animals") +
+     theme(axis.text.x = element_text(size=12,face="bold"),
+           axis.text.y = element_text(size=12,face="bold"),
+           panel.background = element_rect(fill="darkgreen"),
+           panel.grid = element_line(colour="black"),
+           axis.title.y = element_text(size=14,face="bold"))
+
+annotate_figure(g,
+                top = text_grob("\nAnimal rescue in London, UK: an overview from 2009-2020\n", 
+                                color = "black", face = "bold", size = 18),
+                bottom = text_grob("The data this week show animal rescues in London. In this graph, we can see the evolution of \nthe proportion of animals that were rescued over the years (barplot), and the average cost of each \nrescue (white line). The proportion of bird and fox tends to increase, while the proportion of dogs rescue \nto decrease. The average cost of a rescue has increased of around 100£ in 10 years.\n
+                                   Data source:  London.gov, Visualization: Stéphanie Depickère, June 2021", 
+                                   color = "brown",
+                                   face = "italic", size = 14))   
+
+
+
+ggsave(filename = "MyTT2021-06-29.png",width = 10, height = 10,device = "png")
+
+```
